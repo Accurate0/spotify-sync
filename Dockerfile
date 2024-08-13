@@ -32,11 +32,12 @@ RUN adduser \
 COPY --from=builder /app/${BINARY_NAME} /usr/local/bin/${BINARY_NAME}
 RUN chown appuser /usr/local/bin/${BINARY_NAME}
 RUN apt-get update && apt-get install -y curl
+RUN chown appuser /data
+RUN mkdir /data
 
 USER appuser
 
 WORKDIR /opt/${BINARY_NAME}
-RUN mkdir /data
 
 RUN ln -s /usr/local/bin/${BINARY_NAME} executable
 ENTRYPOINT ["./executable"]
