@@ -32,8 +32,9 @@ RUN adduser \
 COPY --from=builder /app/${BINARY_NAME} /usr/local/bin/${BINARY_NAME}
 RUN chown appuser /usr/local/bin/${BINARY_NAME}
 RUN apt-get update && apt-get install -y curl
-RUN chown appuser /data
+
 RUN mkdir /data
+RUN chown appuser /data
 
 USER appuser
 
