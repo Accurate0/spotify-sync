@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y curl
 USER appuser
 
 WORKDIR /opt/${BINARY_NAME}
-RUN mkdir ./config
+RUN mkdir /data
 
 RUN ln -s /usr/local/bin/${BINARY_NAME} executable
 ENTRYPOINT ["./executable"]
