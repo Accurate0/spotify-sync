@@ -1,5 +1,5 @@
 ARG RUST_VERSION=1.79.0
-ARG BINARY_NAME
+ARG BINARY_NAME=spotify-sync
 
 FROM rust:${RUST_VERSION}-slim-bookworm AS builder
 ARG BINARY_NAME
