@@ -1,5 +1,6 @@
 use axum::{
     extract::{Query, State},
+    http::StatusCode,
     routing::get,
     Router,
 };
@@ -35,6 +36,10 @@ struct AppStateInner {
 
 #[derive(Clone)]
 struct AppState(Arc<AppStateInner>);
+
+async fn health() -> StatusCode {
+    StatusCode::NO_CONTENT
+}
 
 async fn callback(State(state): State<AppState>, query: Query<CallbackQueryParams>) {
     let settings = &state.0.settings;
@@ -185,6 +190,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let app = Router::new()
+        .route("/health", get(health))
         .route("/callback", get(callback))
         .with_state(state);
 
