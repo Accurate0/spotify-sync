@@ -67,6 +67,7 @@ async fn callback(State(state): State<AppState>, query: Query<CallbackQueryParam
 }
 
 async fn sync_task(state: &AppState) -> anyhow::Result<()> {
+    tracing::info!("starting sync");
     let spotify_client = state.0.spotify_client.lock().await;
 
     let liked_songs = spotify_client
@@ -140,7 +141,7 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
             .with_timezone(&offset)
             .format("%d/%m/%Y %I:%M %P");
 
-        tracing::info!("updated done at {}", last_updated);
+        tracing::info!("update done at {}", last_updated);
         spotify_client
             .playlist_change_detail(
                 playlist_id,
@@ -214,6 +215,7 @@ async fn main() -> anyhow::Result<()> {
             if let Err(e) = sync_task(&sync_state).await {
                 tracing::error!("error in sync: {e}")
             }
+
             tokio::time::sleep(Duration::from_secs(900)).await
         }
     });
