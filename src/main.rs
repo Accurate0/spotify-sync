@@ -89,9 +89,12 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
     let items_to_add = liked_songs
         .difference(&existing_playlist_items)
         .collect::<Vec<_>>();
+
     let items_to_remove = existing_playlist_items
         .difference(&liked_songs)
         .collect::<Vec<_>>();
+
+    let mut updated = false;
 
     // FIXME: https://developer.spotify.com/documentation/web-api/reference/reorder-or-replace-playlists-tracks
     // Use this, less requests etc
@@ -106,6 +109,7 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
                 None,
             )
             .await?;
+        updated = true;
     }
 
     if !items_to_add.is_empty() {
@@ -118,18 +122,21 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
                 None,
             )
             .await?;
+        updated = true;
     }
 
-    let last_updated = chrono::Utc::now().format("%d/%m/%Y %H:%M");
-    spotify_client
-        .playlist_change_detail(
-            playlist_id,
-            None,
-            None,
-            Some(&format!("Last updated: {}", last_updated)),
-            None,
-        )
-        .await?;
+    if updated {
+        let last_updated = chrono::Local::now().format("%d/%m/%Y %H:%M");
+        spotify_client
+            .playlist_change_detail(
+                playlist_id,
+                None,
+                None,
+                Some(&format!("Last updated: {}", last_updated)),
+                None,
+            )
+            .await?;
+    }
 
     Ok(())
 }
