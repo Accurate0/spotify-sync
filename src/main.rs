@@ -14,6 +14,8 @@ use rspotify::{
 };
 use std::{collections::HashSet, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
+use tracing::Level;
+use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(serde::Deserialize)]
 struct CallbackQueryParams {
@@ -73,7 +75,7 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
         .try_collect::<HashSet<_>>()
         .await?;
 
-    tracing::info!("song count: {}", liked_songs.len());
+    tracing::info!("liked song count: {}", liked_songs.len());
 
     let playlist_id = PlaylistId::from_id(&state.0.settings.playlist_id)?;
 
@@ -94,6 +96,12 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
     let items_to_remove = existing_playlist_items
         .difference(&liked_songs)
         .collect::<Vec<_>>();
+
+    tracing::info!(
+        "changes: items_to_add -> {}, items_to_remove -> {}",
+        items_to_add.len(),
+        items_to_remove.len()
+    );
 
     let mut updated = false;
 
@@ -131,6 +139,8 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
         let last_updated = chrono::Local::now()
             .with_timezone(&offset)
             .format("%d/%m/%Y %I:%M %P");
+
+        tracing::info!("updated done at {}", last_updated);
         spotify_client
             .playlist_change_detail(
                 playlist_id,
@@ -147,7 +157,15 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::registry()
+        .with(
+            Targets::default()
+                .with_target("rspotify_http::reqwest", Level::WARN)
+                .with_default(Level::INFO),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
     let settings = config::Config::builder()
         .add_source(Environment::with_prefix("SPOTIFYSYNC"))
         .build()?
