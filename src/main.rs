@@ -99,10 +99,13 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
         .collect::<Vec<_>>();
 
     tracing::info!(
-        "changes: items_to_add -> {}, items_to_remove -> {}",
+        "change summary: items_to_add -> {}, items_to_remove -> {}",
         items_to_add.len(),
         items_to_remove.len()
     );
+
+    tracing::info!("diff: items_to_add -> {:?}", items_to_add);
+    tracing::info!("diff: items_to_remove -> {:?}", items_to_remove);
 
     let mut updated = false;
 
