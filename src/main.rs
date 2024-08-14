@@ -4,6 +4,7 @@ use axum::{
     routing::get,
     Router,
 };
+use chrono::FixedOffset;
 use config::Environment;
 use futures::TryStreamExt;
 use rspotify::{
@@ -126,7 +127,10 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
     }
 
     if updated {
-        let last_updated = chrono::Local::now().format("%d/%m/%Y %H:%M");
+        let offset = FixedOffset::east_opt(8 * 3600).unwrap();
+        let last_updated = chrono::Local::now()
+            .with_timezone(&offset)
+            .format("%d/%m/%Y %I:%M %P");
         spotify_client
             .playlist_change_detail(
                 playlist_id,
