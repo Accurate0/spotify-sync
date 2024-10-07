@@ -1,12 +1,13 @@
+use anyhow::Context;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
     routing::get,
     Router,
 };
-use chrono::FixedOffset;
+use chrono::{FixedOffset, Local};
 use config::Environment;
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use rspotify::{
     model::{Id, PlayableId, PlaylistId, TrackId},
     prelude::{BaseClient, OAuthClient},
@@ -24,7 +25,9 @@ struct CallbackQueryParams {
 
 #[derive(serde::Deserialize)]
 struct Settings {
-    playlist_id: String,
+    #[serde(rename = "playlist_id")]
+    liked_songs_playlist_id: String,
+    discover_weekly_archive_playlist_id: String,
     cache_path: String,
     redirect_uri: String,
     client_id: String,
@@ -36,6 +39,8 @@ struct AppStateInner {
     oauth: rspotify::OAuth,
     spotify_client: Mutex<AuthCodeSpotify>,
 }
+
+const CRON_EXPR: &str = "0 0 20 ? * SUN *";
 
 #[derive(Clone)]
 struct AppState(Arc<AppStateInner>);
@@ -66,19 +71,53 @@ async fn callback(State(state): State<AppState>, query: Query<CallbackQueryParam
     }
 }
 
-async fn sync_task(state: &AppState) -> anyhow::Result<()> {
-    tracing::info!("starting sync");
+async fn discover_weekly_archive(state: &AppState) -> anyhow::Result<()> {
     let spotify_client = state.0.spotify_client.lock().await;
+    let mut user_playlists = spotify_client.current_user_playlists();
 
-    let liked_songs = spotify_client
-        .current_user_saved_tracks(None)
-        .try_filter_map(|s| async move { Ok(s.track.id.map(PlayableId::Track).map(|s| s.uri())) })
+    let mut discover_weekly_playlist = None;
+    while let Some(playlist) = user_playlists.next().await {
+        let playlist = playlist?;
+        if playlist.name == "Discover Weekly"
+            && playlist.owner.id.to_string() == "spotify:user:spotify"
+        {
+            discover_weekly_playlist = Some(playlist);
+            break;
+        }
+    }
+
+    if discover_weekly_playlist.is_none() {
+        tracing::warn!("no discovery weekly playlist found..");
+        return Ok(());
+    }
+
+    let discover_weekly_playlist_id = discover_weekly_playlist.map(|p| p.id).unwrap();
+    let discover_weekly_playlist_items = spotify_client
+        .playlist_items(discover_weekly_playlist_id, None, None)
+        .try_filter_map(|s| async move {
+            Ok(s.track
+                .and_then(|t| t.id().map(|t| t.clone_static()))
+                .map(|s| s.uri()))
+        })
         .try_collect::<HashSet<_>>()
         .await?;
 
-    tracing::info!("liked song count: {}", liked_songs.len());
+    diff_and_update_playlist(
+        &spotify_client,
+        &state.0.settings.discover_weekly_archive_playlist_id,
+        discover_weekly_playlist_items,
+    )
+    .await?;
 
-    let playlist_id = PlaylistId::from_id(&state.0.settings.playlist_id)?;
+    Ok(())
+}
+
+async fn diff_and_update_playlist(
+    spotify_client: &AuthCodeSpotify,
+    playlist_to_update: &String,
+    songs_to_add: HashSet<String>,
+) -> anyhow::Result<()> {
+    let playlist_id = PlaylistId::from_id(playlist_to_update)?;
 
     let existing_playlist_items = spotify_client
         .playlist_items(playlist_id.clone(), None, None)
@@ -90,12 +129,12 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
         .try_collect::<HashSet<_>>()
         .await?;
 
-    let items_to_add = liked_songs
+    let items_to_add = songs_to_add
         .difference(&existing_playlist_items)
         .collect::<Vec<_>>();
 
     let items_to_remove = existing_playlist_items
-        .difference(&liked_songs)
+        .difference(&songs_to_add)
         .collect::<Vec<_>>();
 
     tracing::info!(
@@ -159,6 +198,28 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn sync_task(state: &AppState) -> anyhow::Result<()> {
+    tracing::info!("starting sync");
+    let spotify_client = state.0.spotify_client.lock().await;
+
+    let liked_songs = spotify_client
+        .current_user_saved_tracks(None)
+        .try_filter_map(|s| async move { Ok(s.track.id.map(PlayableId::Track).map(|s| s.uri())) })
+        .try_collect::<HashSet<_>>()
+        .await?;
+
+    tracing::info!("liked song count: {}", liked_songs.len());
+
+    diff_and_update_playlist(
+        &spotify_client,
+        &state.0.settings.liked_songs_playlist_id,
+        liked_songs,
+    )
+    .await?;
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
@@ -182,7 +243,12 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let oauth = rspotify::OAuth {
-        scopes: rspotify::scopes!("user-library-read", "playlist-modify-public"),
+        scopes: rspotify::scopes!(
+            "user-library-read",
+            "playlist-read-private",
+            "playlist-modify-public",
+            "playlist-modify-private"
+        ),
         redirect_uri: settings.redirect_uri.to_owned(),
         ..Default::default()
     };
@@ -212,6 +278,30 @@ async fn main() -> anyhow::Result<()> {
         .into(),
     );
 
+    let cron_expr = CRON_EXPR.parse::<cron::Schedule>()?;
+    let discover_weekly_state = state.clone();
+    let offset = FixedOffset::east_opt(8 * 3600).context("must have correct offset")?;
+    let discover_weekly_handle = tokio::spawn(async move {
+        loop {
+            let utc = chrono::Utc::now().naive_utc();
+            let time_now = chrono::DateTime::<Local>::from_naive_utc_and_offset(utc, offset);
+            let next = cron_expr.after(&time_now).next().unwrap();
+
+            let time_until = if time_now >= next {
+                Duration::ZERO
+            } else {
+                (next - time_now).to_std().unwrap()
+            };
+
+            tracing::info!("next archive in {}s at {}", time_until.as_secs(), next);
+            tokio::time::sleep(time_until).await;
+
+            if let Err(e) = discover_weekly_archive(&discover_weekly_state).await {
+                tracing::error!("error in sync: {e}")
+            }
+        }
+    });
+
     let sync_state = state.clone();
     let sync_handle = tokio::spawn(async move {
         loop {
@@ -234,6 +324,9 @@ async fn main() -> anyhow::Result<()> {
             tracing::error!("axum exited")
         }
         _ = sync_handle => {
+            tracing::error!("sync handle exited")
+        }
+        _ = discover_weekly_handle => {
             tracing::error!("sync handle exited")
         }
     }
