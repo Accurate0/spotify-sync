@@ -5,7 +5,7 @@ use axum::{
     routing::get,
     Router,
 };
-use chrono::{FixedOffset, Local};
+use chrono::FixedOffset;
 use config::Environment;
 use futures::{StreamExt, TryStreamExt};
 use rspotify::{
@@ -284,7 +284,7 @@ async fn main() -> anyhow::Result<()> {
     let discover_weekly_handle = tokio::spawn(async move {
         loop {
             let utc = chrono::Utc::now().naive_utc();
-            let time_now = chrono::DateTime::<Local>::from_naive_utc_and_offset(utc, offset);
+            let time_now = chrono::DateTime::<FixedOffset>::from_naive_utc_and_offset(utc, offset);
             let next = cron_expr.after(&time_now).next().unwrap();
 
             let time_until = if time_now >= next {
