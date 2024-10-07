@@ -156,7 +156,7 @@ async fn diff_and_update_playlist(
             .playlist_remove_all_occurrences_of_items(
                 playlist_id.clone(),
                 items_to_remove
-                    .iter()
+                    .into_iter()
                     .map(|i| PlayableId::Track(TrackId::from_uri(i).unwrap())),
                 None,
             )
@@ -169,7 +169,7 @@ async fn diff_and_update_playlist(
             .playlist_add_items(
                 playlist_id.clone(),
                 items_to_add
-                    .iter()
+                    .into_iter()
                     .map(|i| PlayableId::Track(TrackId::from_uri(i).unwrap())),
                 None,
             )
