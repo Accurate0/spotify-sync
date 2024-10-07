@@ -131,10 +131,12 @@ async fn diff_and_update_playlist(
 
     let items_to_add = songs_to_add
         .difference(&existing_playlist_items)
+        .map(|i| PlayableId::Track(TrackId::from_uri(i).unwrap()))
         .collect::<Vec<_>>();
 
     let items_to_remove = existing_playlist_items
         .difference(&songs_to_add)
+        .map(|i| PlayableId::Track(TrackId::from_uri(i).unwrap()))
         .collect::<Vec<_>>();
 
     tracing::info!(
@@ -143,9 +145,6 @@ async fn diff_and_update_playlist(
         items_to_remove.len()
     );
 
-    tracing::info!("diff: items_to_add -> {:?}", items_to_add);
-    tracing::info!("diff: items_to_remove -> {:?}", items_to_remove);
-
     let mut updated = false;
 
     // FIXME: https://developer.spotify.com/documentation/web-api/reference/reorder-or-replace-playlists-tracks
@@ -153,26 +152,14 @@ async fn diff_and_update_playlist(
     if !items_to_remove.is_empty() {
         // FIXME: max is 100, else 400 bad request, paginate and use other API
         spotify_client
-            .playlist_remove_all_occurrences_of_items(
-                playlist_id.clone(),
-                items_to_remove
-                    .into_iter()
-                    .map(|i| PlayableId::Track(TrackId::from_uri(i).unwrap())),
-                None,
-            )
+            .playlist_remove_all_occurrences_of_items(playlist_id.clone(), items_to_remove, None)
             .await?;
         updated = true;
     }
 
     if !items_to_add.is_empty() {
         spotify_client
-            .playlist_add_items(
-                playlist_id.clone(),
-                items_to_add
-                    .into_iter()
-                    .map(|i| PlayableId::Track(TrackId::from_uri(i).unwrap())),
-                None,
-            )
+            .playlist_add_items(playlist_id.clone(), items_to_add, None)
             .await?;
         updated = true;
     }
