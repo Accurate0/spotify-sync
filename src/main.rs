@@ -34,6 +34,12 @@ struct Settings {
     client_secret: String,
 }
 
+#[derive(PartialEq, Eq, Hash)]
+enum PlaylistAction {
+    Add,
+    Remove,
+}
+
 struct AppStateInner {
     settings: Settings,
     oauth: rspotify::OAuth,
@@ -102,10 +108,14 @@ async fn discover_weekly_archive(state: &AppState) -> anyhow::Result<()> {
         .try_collect::<HashSet<_>>()
         .await?;
 
+    let mut actions = HashSet::with_capacity(1);
+    actions.insert(PlaylistAction::Add);
+
     diff_and_update_playlist(
         &spotify_client,
         &state.0.settings.discover_weekly_archive_playlist_id,
         discover_weekly_playlist_items,
+        &actions,
     )
     .await?;
 
@@ -116,6 +126,7 @@ async fn diff_and_update_playlist(
     spotify_client: &AuthCodeSpotify,
     playlist_to_update: &String,
     songs_to_add: HashSet<String>,
+    action: &HashSet<PlaylistAction>,
 ) -> anyhow::Result<()> {
     let playlist_id = PlaylistId::from_id(playlist_to_update)?;
 
@@ -149,7 +160,7 @@ async fn diff_and_update_playlist(
 
     // FIXME: https://developer.spotify.com/documentation/web-api/reference/reorder-or-replace-playlists-tracks
     // Use this, less requests etc
-    if !items_to_remove.is_empty() {
+    if !items_to_remove.is_empty() && action.contains(&PlaylistAction::Remove) {
         // FIXME: max is 100, else 400 bad request, paginate and use other API
         spotify_client
             .playlist_remove_all_occurrences_of_items(playlist_id.clone(), items_to_remove, None)
@@ -157,7 +168,7 @@ async fn diff_and_update_playlist(
         updated = true;
     }
 
-    if !items_to_add.is_empty() {
+    if !items_to_add.is_empty() && action.contains(&PlaylistAction::Add) {
         spotify_client
             .playlist_add_items(playlist_id.clone(), items_to_add, None)
             .await?;
@@ -197,10 +208,15 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
 
     tracing::info!("liked song count: {}", liked_songs.len());
 
+    let mut actions = HashSet::with_capacity(1);
+    actions.insert(PlaylistAction::Add);
+    actions.insert(PlaylistAction::Remove);
+
     diff_and_update_playlist(
         &spotify_client,
         &state.0.settings.liked_songs_playlist_id,
         liked_songs,
+        &actions,
     )
     .await?;
 
