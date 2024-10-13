@@ -208,7 +208,7 @@ async fn sync_task(state: &AppState) -> anyhow::Result<()> {
 
     tracing::info!("liked song count: {}", liked_songs.len());
 
-    let mut actions = HashSet::with_capacity(1);
+    let mut actions = HashSet::with_capacity(2);
     actions.insert(PlaylistAction::Add);
     actions.insert(PlaylistAction::Remove);
 
