@@ -1,6 +1,6 @@
 use anyhow::Context;
 use axum::{
-    extract::{Query, State},
+    extract::{MatchedPath, Query, State},
     http::StatusCode,
     routing::get,
     Router,
@@ -8,6 +8,7 @@ use axum::{
 use chrono::FixedOffset;
 use config::Environment;
 use futures::{StreamExt, TryStreamExt};
+use http::Request;
 use itertools::Itertools;
 use rspotify::{
     model::{Id, PlayableId, PlaylistId, TrackId},
@@ -16,7 +17,11 @@ use rspotify::{
 };
 use std::{collections::HashSet, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
-use tracing::Level;
+use tower_http::{
+    trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
+    LatencyUnit,
+};
+use tracing::{Instrument, Level};
 use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(serde::Deserialize)]
@@ -80,13 +85,11 @@ async fn callback(State(state): State<AppState>, query: Query<CallbackQueryParam
 }
 
 async fn diff_and_update_playlist(
-    task_name: &'static str,
     spotify_client: &AuthCodeSpotify,
     playlist_to_update: &String,
     songs_to_add: &HashSet<String>,
     action: &HashSet<PlaylistAction>,
 ) -> anyhow::Result<()> {
-    tracing::info!("starting {task_name}");
     let playlist_id = PlaylistId::from_id(playlist_to_update)?;
 
     let existing_playlist_items = spotify_client
@@ -110,7 +113,7 @@ async fn diff_and_update_playlist(
         .collect::<Vec<_>>();
 
     tracing::info!(
-        "[{task_name}] change summary: items_to_add -> {}, items_to_remove -> {}",
+        "change summary: items_to_add -> {}, items_to_remove -> {}",
         items_to_add.len(),
         items_to_remove.len()
     );
@@ -167,7 +170,7 @@ async fn diff_and_update_playlist(
             .with_timezone(&offset)
             .format("%d/%m/%Y %I:%M %P");
 
-        tracing::info!("[{task_name}] update done at {}", last_updated);
+        tracing::info!("update done at {}", last_updated);
         spotify_client
             .playlist_change_detail(
                 playlist_id,
@@ -217,12 +220,12 @@ async fn discover_weekly_archive(state: &AppState) -> anyhow::Result<()> {
     actions.insert(PlaylistAction::Add);
 
     diff_and_update_playlist(
-        "discover-weekly-archive",
         &spotify_client,
         &state.0.settings.discover_weekly_archive_playlist_id,
         &discover_weekly_playlist_items,
         &actions,
     )
+    .instrument(tracing::span!(Level::INFO, "archive"))
     .await?;
 
     Ok(())
@@ -245,24 +248,24 @@ async fn sync_and_archive_liked_songs(state: &AppState) -> anyhow::Result<()> {
     sync_actions.insert(PlaylistAction::Remove);
 
     diff_and_update_playlist(
-        "liked-songs-sync",
         &spotify_client,
         &state.0.settings.liked_songs_playlist_id,
         &liked_songs,
         &sync_actions,
     )
+    .instrument(tracing::span!(Level::INFO, "sync"))
     .await?;
 
     let mut archive_actions = HashSet::with_capacity(2);
     archive_actions.insert(PlaylistAction::Add);
 
     diff_and_update_playlist(
-        "liked-songs-archive",
         &spotify_client,
         &state.0.settings.liked_songs_archive_playlist_id,
         &liked_songs,
         &archive_actions,
     )
+    .instrument(tracing::span!(Level::INFO, "archive"))
     .await?;
 
     Ok(())
@@ -329,42 +332,66 @@ async fn main() -> anyhow::Result<()> {
     let cron_expr = CRON_EXPR.parse::<cron::Schedule>()?;
     let discover_weekly_state = state.clone();
     let offset = FixedOffset::east_opt(8 * 3600).context("must have correct offset")?;
-    let discover_weekly_handle = tokio::spawn(async move {
-        loop {
-            let utc = chrono::Utc::now().naive_utc();
-            let time_now = chrono::DateTime::<FixedOffset>::from_naive_utc_and_offset(utc, offset);
-            let next = cron_expr.after(&time_now).next().unwrap();
+    let discover_weekly_handle = tokio::spawn(
+        async move {
+            loop {
+                let utc = chrono::Utc::now().naive_utc();
+                let time_now =
+                    chrono::DateTime::<FixedOffset>::from_naive_utc_and_offset(utc, offset);
+                let next = cron_expr.after(&time_now).next().unwrap();
 
-            let time_until = if time_now >= next {
-                Duration::ZERO
-            } else {
-                (next - time_now).to_std().unwrap()
-            };
+                let time_until = if time_now >= next {
+                    Duration::ZERO
+                } else {
+                    (next - time_now).to_std().unwrap()
+                };
 
-            tracing::info!("next archive in {}s at {}", time_until.as_secs(), next);
-            tokio::time::sleep(time_until).await;
+                tracing::info!("next archive in {}s at {}", time_until.as_secs(), next);
+                tokio::time::sleep(time_until).await;
 
-            if let Err(e) = discover_weekly_archive(&discover_weekly_state).await {
-                tracing::error!("error in sync: {e}")
+                if let Err(e) = discover_weekly_archive(&discover_weekly_state).await {
+                    tracing::error!("error in sync: {e}")
+                }
             }
         }
-    });
+        .instrument(tracing::span!(Level::INFO, "discover-weekly")),
+    );
 
     let sync_state = state.clone();
-    let sync_handle = tokio::spawn(async move {
-        loop {
-            if let Err(e) = sync_and_archive_liked_songs(&sync_state).await {
-                tracing::error!("error in sync: {e}")
-            }
+    let sync_handle = tokio::spawn(
+        async move {
+            loop {
+                if let Err(e) = sync_and_archive_liked_songs(&sync_state).await {
+                    tracing::error!("error in sync: {e}")
+                }
 
-            tokio::time::sleep(Duration::from_secs(900)).await
+                tokio::time::sleep(Duration::from_secs(900)).await
+            }
         }
-    });
+        .instrument(tracing::span!(Level::INFO, "liked-songs")),
+    );
+
+    let trace_layer = TraceLayer::new_for_http()
+        .make_span_with(|request: &Request<_>| {
+            let matched_path = request
+                .extensions()
+                .get::<MatchedPath>()
+                .map(MatchedPath::as_str);
+
+            tracing::info_span!("request", uri = matched_path)
+        })
+        .on_request(DefaultOnRequest::new().level(Level::INFO))
+        .on_response(
+            DefaultOnResponse::new()
+                .level(Level::INFO)
+                .latency_unit(LatencyUnit::Millis),
+        );
 
     let app = Router::new()
-        .route("/health", get(health))
         .route("/callback", get(callback))
-        .with_state(state);
+        .with_state(state)
+        .layer(trace_layer)
+        .route("/health", get(health));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await?;
     tokio::select! {
