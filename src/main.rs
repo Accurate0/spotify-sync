@@ -8,6 +8,7 @@ use axum::{
 use chrono::FixedOffset;
 use config::Environment;
 use futures::{StreamExt, TryStreamExt};
+use itertools::Itertools;
 use rspotify::{
     model::{Id, PlayableId, PlaylistId, TrackId},
     prelude::{BaseClient, OAuthClient},
@@ -114,20 +115,47 @@ async fn diff_and_update_playlist(
 
     let mut updated = false;
 
-    // FIXME: https://developer.spotify.com/documentation/web-api/reference/reorder-or-replace-playlists-tracks
-    // Use this, less requests etc
     if !items_to_remove.is_empty() && action.contains(&PlaylistAction::Remove) {
-        // FIXME: max is 100, else 400 bad request, paginate and use other API
-        spotify_client
-            .playlist_remove_all_occurrences_of_items(playlist_id.clone(), items_to_remove, None)
-            .await?;
+        let chunks = items_to_remove.into_iter().chunks(100);
+        let remove_requests = chunks
+            .into_iter()
+            .map(|c| c.collect_vec())
+            .map(|c| {
+                let playlist_id = playlist_id.clone();
+
+                Box::pin(async move {
+                    spotify_client
+                        .playlist_remove_all_occurrences_of_items(playlist_id.clone(), c, None)
+                        .await?;
+
+                    Ok::<(), anyhow::Error>(())
+                })
+            })
+            .collect_vec();
+
+        futures::future::join_all(remove_requests).await;
         updated = true;
     }
 
     if !items_to_add.is_empty() && action.contains(&PlaylistAction::Add) {
-        spotify_client
-            .playlist_add_items(playlist_id.clone(), items_to_add, None)
-            .await?;
+        let chunks = items_to_add.into_iter().chunks(100);
+        let add_requests = chunks
+            .into_iter()
+            .map(|c| c.collect_vec())
+            .map(|c| {
+                let playlist_id = playlist_id.clone();
+
+                Box::pin(async move {
+                    spotify_client
+                        .playlist_add_items(playlist_id.clone(), c, None)
+                        .await?;
+
+                    Ok::<(), anyhow::Error>(())
+                })
+            })
+            .collect_vec();
+
+        futures::future::join_all(add_requests).await;
         updated = true;
     }
 
