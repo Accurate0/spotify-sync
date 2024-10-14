@@ -80,11 +80,13 @@ async fn callback(State(state): State<AppState>, query: Query<CallbackQueryParam
 }
 
 async fn diff_and_update_playlist(
+    task_name: &'static str,
     spotify_client: &AuthCodeSpotify,
     playlist_to_update: &String,
     songs_to_add: &HashSet<String>,
     action: &HashSet<PlaylistAction>,
 ) -> anyhow::Result<()> {
+    tracing::info!("starting {task_name}");
     let playlist_id = PlaylistId::from_id(playlist_to_update)?;
 
     let existing_playlist_items = spotify_client
@@ -108,7 +110,7 @@ async fn diff_and_update_playlist(
         .collect::<Vec<_>>();
 
     tracing::info!(
-        "change summary: items_to_add -> {}, items_to_remove -> {}",
+        "[{task_name}] change summary: items_to_add -> {}, items_to_remove -> {}",
         items_to_add.len(),
         items_to_remove.len()
     );
@@ -165,7 +167,7 @@ async fn diff_and_update_playlist(
             .with_timezone(&offset)
             .format("%d/%m/%Y %I:%M %P");
 
-        tracing::info!("update done at {}", last_updated);
+        tracing::info!("[{task_name}] update done at {}", last_updated);
         spotify_client
             .playlist_change_detail(
                 playlist_id,
@@ -215,6 +217,7 @@ async fn discover_weekly_archive(state: &AppState) -> anyhow::Result<()> {
     actions.insert(PlaylistAction::Add);
 
     diff_and_update_playlist(
+        "discover-weekly-archive",
         &spotify_client,
         &state.0.settings.discover_weekly_archive_playlist_id,
         &discover_weekly_playlist_items,
@@ -242,6 +245,7 @@ async fn sync_and_archive_liked_songs(state: &AppState) -> anyhow::Result<()> {
     sync_actions.insert(PlaylistAction::Remove);
 
     diff_and_update_playlist(
+        "liked-songs-sync",
         &spotify_client,
         &state.0.settings.liked_songs_playlist_id,
         &liked_songs,
@@ -253,6 +257,7 @@ async fn sync_and_archive_liked_songs(state: &AppState) -> anyhow::Result<()> {
     archive_actions.insert(PlaylistAction::Add);
 
     diff_and_update_playlist(
+        "liked-songs-archive",
         &spotify_client,
         &state.0.settings.liked_songs_archive_playlist_id,
         &liked_songs,
