@@ -138,7 +138,15 @@ async fn diff_and_update_playlist(
             })
             .collect_vec();
 
-        futures::future::join_all(remove_requests).await;
+        let results = futures::future::join_all(remove_requests).await;
+
+        let errors = results
+            .into_iter()
+            .filter(|r| r.is_err())
+            .map(|r| r.err().unwrap())
+            .collect_vec();
+
+        tracing::error!("errors: {errors:?}");
         updated = true;
     }
 
@@ -160,7 +168,14 @@ async fn diff_and_update_playlist(
             })
             .collect_vec();
 
-        futures::future::join_all(add_requests).await;
+        let results = futures::future::join_all(add_requests).await;
+        let errors = results
+            .into_iter()
+            .filter(|r| r.is_err())
+            .map(|r| r.err().unwrap())
+            .collect_vec();
+
+        tracing::error!("errors: {errors:?}");
         updated = true;
     }
 
