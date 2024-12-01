@@ -97,9 +97,10 @@ jobs:
           kubectl -n spotify-sync create secret generic spotify-sync-secrets \
             --from-literal=clientid="${{ secrets.SPOTIFYSYNC_CLIENT_ID }}"  \
             --from-literal=clientsecret="${{ secrets.SPOTIFYSYNC_CLIENT_SECRET }}" \
-            -o yaml --dry-run=client > secrets.yaml
+            -o yaml --dry-run=client > kubernetes/secrets.yaml
 
-          kubectl apply -f secrets.yaml kubernetes/deploy.yaml
+          pushd kubernetes
+          kubectl apply -f .
 
       # - name: Deploy to k8s (secrets)
       #   uses: actions-hub/kubectl@master
