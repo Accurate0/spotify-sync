@@ -20,6 +20,7 @@ ARG BINARY_NAME
 
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates
 RUN update-ca-certificates
+RUN groupadd -g 10001 appuser
 RUN adduser \
     --disabled-password \
     --gecos "" \
@@ -27,14 +28,12 @@ RUN adduser \
     --shell "/sbin/nologin" \
     --no-create-home \
     --uid "10001" \
+    --gid "10001" \
     appuser
 
 COPY --from=builder /app/${BINARY_NAME} /usr/local/bin/${BINARY_NAME}
 RUN chown appuser /usr/local/bin/${BINARY_NAME}
 RUN apt-get update && apt-get install -y curl
-
-RUN mkdir /data
-RUN chown appuser /data
 
 USER appuser
 
