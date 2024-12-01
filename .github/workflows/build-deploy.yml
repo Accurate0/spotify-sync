@@ -90,4 +90,10 @@ jobs:
         run: |
           mkdir -p $HOME/.kube
           echo -n "$KUBE_CONFIG" | base64 -d > $HOME/.kube/config
+
+          kubectl -n spotify-sync \
+            create secret generic spotify-sync-secrets \
+            --from-literal=clientid="${{ secrets.SPOTIFYSYNC_CLIENT_ID }}" \
+            --from-literal=clientsecret="${{ secrets.SPOTIFYSYNC_CLIENT_SECRET }}"
+
           kubectl apply -f kubernetes/deploy.yaml

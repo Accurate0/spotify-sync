@@ -29,15 +29,6 @@ spec:
         - spotify-sync.anurag.sh
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: spotify-sync-secrets
-  namespace: spotify-sync
-data:
-  clientid: bXktYXBw
-  clientsecret: Mzk1MjgkdmRnN0pi
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: spotify-sync-pvc
