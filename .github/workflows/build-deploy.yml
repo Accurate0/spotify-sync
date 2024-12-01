@@ -84,9 +84,10 @@ jobs:
           tags: tag:ci
           version: 1.76.6
 
-      - name: Deploy to K8S
-        uses: actions-hub/kubectl@master
+      - name: Deploy to k8s
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        with:
-          args: apply -f kubernetes/deploy.yaml
+        run: |
+          mkdir -p $HOME/.kube
+          echo -n "$KUBE_CONFIG" | base64 -d > $HOME/.kube/config
+          kubectl apply -f kubernetes/deploy.yaml
