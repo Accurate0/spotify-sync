@@ -101,18 +101,3 @@ jobs:
 
           pushd kubernetes
           kubectl apply -f .
-
-      # - name: Deploy to k8s (secrets)
-      #   uses: actions-hub/kubectl@master
-      #   env:
-      #     KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-      #   with:
-      #     args: |
-      #       -n spotify-sync create secret generic spotify-sync-secrets --from-literal=clientid="${{ secrets.SPOTIFYSYNC_CLIENT_ID }}" --from-literal=clientsecret="${{ secrets.SPOTIFYSYNC_CLIENT_SECRET }}"
-      #
-      # - name: Deploy to k8s
-      #   uses: actions-hub/kubectl@master
-      #   env:
-      #     KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-      #   with:
-      #     args: apply -f kubernetes/deploy.yaml
