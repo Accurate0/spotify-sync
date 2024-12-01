@@ -68,7 +68,7 @@ spec:
               mountPath: /data
           env:
             - name: SPOTIFYSYNC_REDIRECT_URI
-              value: https://spotify-sync.anurag.sh
+              value: https://spotify-sync.anurag.sh/callback
 
             - name: SPOTIFYSYNC_PLAYLIST_ID
               value: 0kjjqaH0XwOPC7Zbpg1qH7
