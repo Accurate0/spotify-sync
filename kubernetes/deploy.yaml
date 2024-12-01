@@ -56,11 +56,15 @@ spec:
       labels:
         app: spotify-sync-app
     spec:
+      volumes:
+        - name: spotify-sync-volume
+          persistentVolumeClaim:
+            claimName: spotify-sync-pvc
       containers:
         - name: spotify-sync
           image: ghcr.io/accurate0/spotify-sync:latest
           volumeMounts:
-            - name: spotify-sync-pvc
+            - name: spotify-sync-volume
               mountPath: /data
           env:
             - name: SPOTIFYSYNC_REDIRECT_URI
