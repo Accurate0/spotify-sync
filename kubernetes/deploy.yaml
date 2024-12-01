@@ -45,9 +45,9 @@ spec:
     spec:
       containers:
         - name: spotify-sync
-          image: nginx:latest
+          image: ghcr.io/accurate0/spotify-sync:latest
           ports:
-            - containerPort: 80
+            - containerPort: 8000
 ---
 apiVersion: v1
 kind: Service
@@ -60,4 +60,4 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80
+      targetPort: 8000
