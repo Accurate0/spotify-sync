@@ -70,6 +70,7 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   deploy:
+    name: Deploy
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -101,4 +102,5 @@ jobs:
             --from-literal=clientsecret="${{ secrets.SPOTIFYSYNC_CLIENT_SECRET }}" \
             -o yaml --dry-run=client > secrets.yaml
 
-          kubectl apply -f secrets.yaml application.yaml
+          kubectl apply -f secrets.yaml
+          kubectl apply -f application.yaml
