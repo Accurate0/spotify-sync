@@ -17,10 +17,10 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: spotify-sync
-  operation:
-    initiatedBy:
-      username: github-actions
-    sync:
-      syncStrategy:
-        prune: true
-        hook: {}
+operation:
+  initiatedBy:
+    username: github-actions
+  sync:
+    prune: true
+    syncStrategy:
+      hook: {}

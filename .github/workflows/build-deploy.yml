@@ -88,8 +88,6 @@ jobs:
       - name: Deploy to k8s
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
-          ARGOCD_SERVER: argocd.internal.anurag.sh
         run: |
           if [ ! -d "$HOME/.kube" ]; then
             mkdir -p $HOME/.kube
