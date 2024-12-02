@@ -87,6 +87,7 @@ jobs:
       - name: Deploy to k8s
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
         run: |
           if [ ! -d "$HOME/.kube" ]; then
             mkdir -p $HOME/.kube
@@ -97,7 +98,8 @@ jobs:
           kubectl -n spotify-sync create secret generic spotify-sync-secrets \
             --from-literal=clientid="${{ secrets.SPOTIFYSYNC_CLIENT_ID }}"  \
             --from-literal=clientsecret="${{ secrets.SPOTIFYSYNC_CLIENT_SECRET }}" \
-            -o yaml --dry-run=client > kubernetes/secrets.yaml
+            -o yaml --dry-run=client > secrets.yaml
 
-          pushd kubernetes
-          kubectl apply -f .
+          kubectl apply -f secrets.yaml
+
+          argocd app sync spotify-sync

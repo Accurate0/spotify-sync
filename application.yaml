@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: spotify-sync
+  namespace: argocd
+spec:
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  project: default
+  source:
+    repoURL: https://github.com/Accurate0/spotify-sync.git
+    path: kubernetes
+    directory:
+      exclude: "config.yaml"
+      include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: spotify-sync
