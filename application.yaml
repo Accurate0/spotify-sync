@@ -22,4 +22,5 @@ spec:
       username: github-actions
     sync:
       syncStrategy:
+        prune: true
         hook: {}
