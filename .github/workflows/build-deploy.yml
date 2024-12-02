@@ -84,12 +84,6 @@ jobs:
           tags: tag:ci
           version: 1.76.6
 
-      - name: Install argocd cli
-        run: |
-          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
-          rm argocd-linux-amd64
-
       - name: Deploy to k8s
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
@@ -107,6 +101,4 @@ jobs:
             --from-literal=clientsecret="${{ secrets.SPOTIFYSYNC_CLIENT_SECRET }}" \
             -o yaml --dry-run=client > secrets.yaml
 
-          kubectl apply -f secrets.yaml
-
-          argocd app sync spotify-sync
+          kubectl apply -f secrets.yaml application.yaml
