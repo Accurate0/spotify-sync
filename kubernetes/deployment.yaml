@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: spotify-sync
   namespace: spotify-sync
+  annotations:
+    secrets.infisical.com/auto-reload: true
 spec:
   selector:
     matchLabels:
