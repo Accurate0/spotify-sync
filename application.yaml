@@ -4,8 +4,13 @@ metadata:
   name: spotify-sync
   namespace: argocd
 spec:
+  ignoreDifferences:
+    - group: "*"
+      kind: Secret
+      name: spotify-sync-managed-secrets
   syncPolicy:
     syncOptions:
+      - RespectIgnoreDifferences=true
       - CreateNamespace=true
   project: default
   source:
