@@ -94,11 +94,4 @@ jobs:
           fi
 
           echo -n "$KUBE_CONFIG" | base64 -di > $HOME/.kube/config
-
-          kubectl -n spotify-sync create secret generic spotify-sync-secrets \
-            --from-literal=clientid="${{ secrets.SPOTIFYSYNC_CLIENT_ID }}"  \
-            --from-literal=clientsecret="${{ secrets.SPOTIFYSYNC_CLIENT_SECRET }}" \
-            -o yaml --dry-run=client > secrets.yaml
-
-          kubectl apply -f secrets.yaml
           kubectl apply -f application.yaml

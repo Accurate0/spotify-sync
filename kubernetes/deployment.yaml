@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spotify-sync
+  namespace: spotify-sync
+spec:
+  selector:
+    matchLabels:
+      app: spotify-sync
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: spotify-sync
+    spec:
+      securityContext:
+        fsGroup: 10001
+      volumes:
+        - name: spotify-sync-volume
+          persistentVolumeClaim:
+            claimName: spotify-sync
+      containers:
+        - name: spotify-sync
+          image: ghcr.io/accurate0/spotify-sync:latest
+          volumeMounts:
+            - name: spotify-sync-volume
+              mountPath: /data
+          envFrom:
+            - secretRef:
+                name: spotify-sync-managed-secrets
+          ports:
+            - containerPort: 8000

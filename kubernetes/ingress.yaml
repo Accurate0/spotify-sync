@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spotify-sync
+  namespace: spotify-sync
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: spotify-sync.anurag.sh
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spotify-sync
+                port:
+                  number: 80
+  tls:
+    - secretName: spotify-sync-anurag-sh-tls
+      hosts:
+        - spotify-sync.anurag.sh

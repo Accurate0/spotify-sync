@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spotify-sync
+  namespace: spotify-sync
+spec:
+  selector:
+    app: spotify-sync
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
