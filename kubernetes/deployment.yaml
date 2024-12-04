@@ -22,6 +22,7 @@ spec:
       containers:
         - name: spotify-sync
           image: ghcr.io/accurate0/spotify-sync:latest
+          imagePullPolicy: Always
           volumeMounts:
             - name: spotify-sync-volume
               mountPath: /data
