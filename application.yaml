@@ -11,8 +11,9 @@ spec:
   source:
     repoURL: https://github.com/Accurate0/spotify-sync.git
     path: kubernetes
-    directory:
-      include: "*.yaml"
+    kustomize:
+      images:
+        - spotify-sync=ghcr.io/accurate0/spotify-sync:${ARGOCD_APP_REVISION}
   destination:
     server: https://kubernetes.default.svc
     namespace: spotify-sync

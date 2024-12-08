@@ -23,7 +23,7 @@ spec:
             claimName: spotify-sync
       containers:
         - name: spotify-sync
-          image: ghcr.io/accurate0/spotify-sync:latest
+          image: spotify-sync:latest
           imagePullPolicy: Always
           volumeMounts:
             - name: spotify-sync-volume
