@@ -18,6 +18,11 @@ spec:
       labels:
         app: spotify-sync
     spec:
+      tolerations:
+        - key: "group"
+          operator: "Equal"
+          value: "external"
+          effect: "NoSchedule"
       securityContext:
         fsGroup: 10001
       volumes:
