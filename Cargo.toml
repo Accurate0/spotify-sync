@@ -5,14 +5,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.86"
-axum = "0.7.5"
+axum = "0.8.0"
 chrono = "0.4.38"
-config = "0.14.0"
-cron = "0.12.1"
+config = "0.15.0"
+cron = "0.14.0"
 futures = "0.3.30"
 http = "1.1.0"
-itertools = "0.13.0"
-rspotify = "0.13.2"
+itertools = "0.14.0"
+rspotify = "0.14.0"
 serde = { version = "1.0.207", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 tower-http = { version = "0.6.1", features = ["trace"] }
