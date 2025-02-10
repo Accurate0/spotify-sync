@@ -347,30 +347,30 @@ async fn main() -> anyhow::Result<()> {
     let cron_expr = CRON_EXPR.parse::<cron::Schedule>()?;
     let discover_weekly_state = state.clone();
     let offset = FixedOffset::east_opt(8 * 3600).context("must have correct offset")?;
-    let discover_weekly_handle = tokio::spawn(
-        async move {
-            loop {
-                let utc = chrono::Utc::now().naive_utc();
-                let time_now =
-                    chrono::DateTime::<FixedOffset>::from_naive_utc_and_offset(utc, offset);
-                let next = cron_expr.after(&time_now).next().unwrap();
-
-                let time_until = if time_now >= next {
-                    Duration::ZERO
-                } else {
-                    (next - time_now).to_std().unwrap()
-                };
-
-                tracing::info!("next archive in {}s at {}", time_until.as_secs(), next);
-                tokio::time::sleep(time_until).await;
-
-                if let Err(e) = discover_weekly_archive(&discover_weekly_state).await {
-                    tracing::error!("error in sync: {e}")
-                }
-            }
-        }
-        .instrument(tracing::span!(Level::INFO, "discover-weekly")),
-    );
+    // let discover_weekly_handle = tokio::spawn(
+    //     async move {
+    //         loop {
+    //             let utc = chrono::Utc::now().naive_utc();
+    //             let time_now =
+    //                 chrono::DateTime::<FixedOffset>::from_naive_utc_and_offset(utc, offset);
+    //             let next = cron_expr.after(&time_now).next().unwrap();
+    //
+    //             let time_until = if time_now >= next {
+    //                 Duration::ZERO
+    //             } else {
+    //                 (next - time_now).to_std().unwrap()
+    //             };
+    //
+    //             tracing::info!("next archive in {}s at {}", time_until.as_secs(), next);
+    //             tokio::time::sleep(time_until).await;
+    //
+    //             if let Err(e) = discover_weekly_archive(&discover_weekly_state).await {
+    //                 tracing::error!("error in sync: {e}")
+    //             }
+    //         }
+    //     }
+    //     .instrument(tracing::span!(Level::INFO, "discover-weekly")),
+    // );
 
     let sync_state = state.clone();
     let sync_handle = tokio::spawn(
@@ -416,9 +416,9 @@ async fn main() -> anyhow::Result<()> {
         _ = sync_handle => {
             tracing::error!("sync handle exited")
         }
-        _ = discover_weekly_handle => {
-            tracing::error!("sync handle exited")
-        }
+        // _ = discover_weekly_handle => {
+        //     tracing::error!("sync handle exited")
+        // }
     }
 
     Ok(())
