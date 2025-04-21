@@ -141,9 +141,11 @@ async fn diff_and_update_playlist(
                 let playlist_id = playlist_id.clone();
 
                 Box::pin(async move {
-                    spotify_client
+                    let r = spotify_client
                         .playlist_remove_all_occurrences_of_items(playlist_id.clone(), c, None)
                         .await?;
+
+                    tracing::info!("{r:?}");
 
                     Ok::<(), anyhow::Error>(())
                 })
@@ -171,9 +173,11 @@ async fn diff_and_update_playlist(
                 let playlist_id = playlist_id.clone();
 
                 Box::pin(async move {
-                    spotify_client
+                    let r = spotify_client
                         .playlist_add_items(playlist_id.clone(), c, None)
                         .await?;
+
+                    tracing::info!("{r:?}");
 
                     Ok::<(), anyhow::Error>(())
                 })
