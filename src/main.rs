@@ -1,4 +1,3 @@
-use anyhow::Context;
 use axum::{
     extract::{MatchedPath, Query, State},
     http::StatusCode,
@@ -7,7 +6,7 @@ use axum::{
 };
 use chrono::FixedOffset;
 use config::Environment;
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use http::Request;
 use itertools::Itertools;
 use rspotify::{
@@ -33,7 +32,6 @@ struct CallbackQueryParams {
 struct Settings {
     #[serde(rename = "playlist_id")]
     liked_songs_playlist_id: String,
-    discover_weekly_archive_playlist_id: String,
     liked_songs_archive_playlist_id: String,
     cache_path: String,
     redirect_uri: String,
@@ -52,8 +50,6 @@ struct AppStateInner {
     oauth: rspotify::OAuth,
     spotify_client: Mutex<AuthCodeSpotify>,
 }
-
-const CRON_EXPR: &str = "0 0 20 ? * SUN *";
 
 #[derive(Clone)]
 struct AppState(Arc<AppStateInner>);
@@ -87,7 +83,7 @@ async fn callback(State(state): State<AppState>, query: Query<CallbackQueryParam
 async fn diff_and_update_playlist(
     spotify_client: &AuthCodeSpotify,
     playlist_to_update: &String,
-    songs_to_add: &HashSet<String>,
+    liked_songs: &HashSet<String>,
     action: &HashSet<PlaylistAction>,
 ) -> anyhow::Result<()> {
     let playlist_id = PlaylistId::from_id(playlist_to_update)?;
@@ -102,15 +98,31 @@ async fn diff_and_update_playlist(
         .try_collect::<HashSet<_>>()
         .await?;
 
-    let items_to_add = songs_to_add
+    tracing::info!("{}", existing_playlist_items.len());
+    tracing::info!("{}", liked_songs.len());
+    let mut difference = liked_songs
         .difference(&existing_playlist_items)
         .map(|i| PlayableId::Track(TrackId::from_uri(i).unwrap()))
-        .collect::<Vec<_>>();
+        .collect::<HashSet<_>>();
 
-    let items_to_remove = existing_playlist_items
-        .difference(songs_to_add)
+    let difference2 = existing_playlist_items
+        .difference(liked_songs)
         .map(|i| PlayableId::Track(TrackId::from_uri(i).unwrap()))
-        .collect::<Vec<_>>();
+        .collect::<HashSet<_>>();
+
+    difference.extend(difference2);
+
+    tracing::info!("{difference:?}");
+    let mut items_to_add = Vec::new();
+    let mut items_to_remove = Vec::new();
+
+    for different_item in difference {
+        if liked_songs.contains(&different_item.uri()) {
+            items_to_remove.push(different_item);
+        } else if existing_playlist_items.contains(&different_item.uri()) {
+            items_to_add.push(different_item);
+        }
+    }
 
     tracing::info!(
         "change summary: items_to_add -> {}, items_to_remove -> {}",
@@ -196,52 +208,6 @@ async fn diff_and_update_playlist(
             )
             .await?;
     }
-
-    Ok(())
-}
-
-async fn discover_weekly_archive(state: &AppState) -> anyhow::Result<()> {
-    let spotify_client = state.0.spotify_client.lock().await;
-    let mut user_playlists = spotify_client.current_user_playlists();
-
-    let mut discover_weekly_playlist = None;
-    while let Some(playlist) = user_playlists.next().await {
-        let playlist = playlist?;
-        if playlist.name == "Discover Weekly"
-            && playlist.owner.id.to_string() == "spotify:user:spotify"
-        {
-            discover_weekly_playlist = Some(playlist);
-            break;
-        }
-    }
-
-    if discover_weekly_playlist.is_none() {
-        tracing::warn!("no discovery weekly playlist found..");
-        return Ok(());
-    }
-
-    let discover_weekly_playlist_id = discover_weekly_playlist.map(|p| p.id).unwrap();
-    let discover_weekly_playlist_items = spotify_client
-        .playlist_items(discover_weekly_playlist_id, None, None)
-        .try_filter_map(|s| async move {
-            Ok(s.track
-                .and_then(|t| t.id().map(|t| t.clone_static()))
-                .map(|s| s.uri()))
-        })
-        .try_collect::<HashSet<_>>()
-        .await?;
-
-    let mut actions = HashSet::with_capacity(1);
-    actions.insert(PlaylistAction::Add);
-
-    diff_and_update_playlist(
-        &spotify_client,
-        &state.0.settings.discover_weekly_archive_playlist_id,
-        &discover_weekly_playlist_items,
-        &actions,
-    )
-    .instrument(tracing::span!(Level::INFO, "archive"))
-    .await?;
 
     Ok(())
 }
@@ -343,34 +309,6 @@ async fn main() -> anyhow::Result<()> {
         }
         .into(),
     );
-
-    let cron_expr = CRON_EXPR.parse::<cron::Schedule>()?;
-    let discover_weekly_state = state.clone();
-    let offset = FixedOffset::east_opt(8 * 3600).context("must have correct offset")?;
-    // let discover_weekly_handle = tokio::spawn(
-    //     async move {
-    //         loop {
-    //             let utc = chrono::Utc::now().naive_utc();
-    //             let time_now =
-    //                 chrono::DateTime::<FixedOffset>::from_naive_utc_and_offset(utc, offset);
-    //             let next = cron_expr.after(&time_now).next().unwrap();
-    //
-    //             let time_until = if time_now >= next {
-    //                 Duration::ZERO
-    //             } else {
-    //                 (next - time_now).to_std().unwrap()
-    //             };
-    //
-    //             tracing::info!("next archive in {}s at {}", time_until.as_secs(), next);
-    //             tokio::time::sleep(time_until).await;
-    //
-    //             if let Err(e) = discover_weekly_archive(&discover_weekly_state).await {
-    //                 tracing::error!("error in sync: {e}")
-    //             }
-    //         }
-    //     }
-    //     .instrument(tracing::span!(Level::INFO, "discover-weekly")),
-    // );
 
     let sync_state = state.clone();
     let sync_handle = tokio::spawn(
