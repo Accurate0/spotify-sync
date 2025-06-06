@@ -8,7 +8,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: mayastor-replica
+  storageClassName: longhorn-replicated
   resources:
     requests:
       storage: 50Mi
