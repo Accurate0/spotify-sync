@@ -322,7 +322,7 @@ async fn main() -> anyhow::Result<()> {
                     tracing::error!("error in sync: {e}")
                 }
 
-                tokio::time::sleep(Duration::from_secs(900)).await
+                tokio::time::sleep(Duration::from_secs(3600)).await
             }
         }
         .instrument(tracing::span!(Level::INFO, "liked-songs")),
