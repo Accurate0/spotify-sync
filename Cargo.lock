@@ -680,7 +680,7 @@ dependencies = [
  "http-body",
  "hyper",
  "pin-project-lite",
- "socket2",
+ "socket2 0.5.8",
  "tokio",
  "tower-service",
  "tracing",
@@ -909,9 +909,9 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
-version = "0.2.169"
+version = "0.2.175"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5aba8db14291edd000dfcc4d620c7ebfb122c613afb886ca8803fa4e128a20a"
+checksum = "6a82ae493e598baaea5209805c49bbf2ea7de956d50d7da0da1164f9c6d28543"
 
 [[package]]
 name = "linux-raw-sys"
@@ -1232,9 +1232,9 @@ dependencies = [
 
 [[package]]
 name = "rspotify"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97e4f3254b449534ab3891331881d922d50ec36bd07c155147253a747fa5d475"
+checksum = "c39d180900892f9b6327d087b239ea82b8ed911fe9aa18d4942ffdbf8055a5fc"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1256,9 +1256,9 @@ dependencies = [
 
 [[package]]
 name = "rspotify-http"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed8a6b6d3cfea3040a2436e02366e5cb8d84f7658667be7075f6ed1cc64360da"
+checksum = "945a4224bc10689210e3a174d11a0fe739cc3cd274a5b20e189fa6dcd075c3ee"
 dependencies = [
  "async-trait",
  "log",
@@ -1270,15 +1270,15 @@ dependencies = [
 
 [[package]]
 name = "rspotify-macros"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "559fad82b639297c093c5cc8ef406001dd0cb55cd9f5125a8fb40310e38b95d9"
+checksum = "beb553ecf4dc5bb227ff9ad722aada0c000fe02cb95d5d94bed15580d488f63d"
 
 [[package]]
 name = "rspotify-model"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cd00345ab89d2dd8059f0d0c168a6b0f858099795d7e318554411303b827d95"
+checksum = "9d78e4c1c1f0363c8d5950337eca16f17483e8da86548c34fa4fdc94f5c7746e"
 dependencies = [
  "chrono",
  "enum_dispatch",
@@ -1513,6 +1513,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "socket2"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "233504af464074f9d066d7b5416c5f9b894a5862a6506e306f7b816cdd6f1807"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "spotify-sync"
 version = "0.1.0"
 dependencies = [
@@ -1540,23 +1550,22 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "strum"
-version = "0.26.3"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 dependencies = [
  "strum_macros",
 ]
 
 [[package]]
 name = "strum_macros"
-version = "0.26.4"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "rustversion",
  "syn",
 ]
 
@@ -1676,9 +1685,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.46.1"
+version = "1.47.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cc3a2344dafbe23a245241fe8b09735b521110d30fcefbbd5feb1797ca35d17"
+checksum = "89e49afdadebb872d3145a5638b59eb0691ea23e46ca484037cfab3b76b95038"
 dependencies = [
  "backtrace",
  "bytes",
@@ -1687,9 +1696,9 @@ dependencies = [
  "mio",
  "pin-project-lite",
  "slab",
- "socket2",
+ "socket2 0.6.0",
  "tokio-macros",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
